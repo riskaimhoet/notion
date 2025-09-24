@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calendar + Analog Clock</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .clock {
+      width: 220px;
+      height: 220px;
+      border: 6px solid #38bdf8;
+      border-radius: 50%;
+      position: relative;
+      margin: auto;
+      background: #0f1b2b;
+    }
+    .hand {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform-origin: bottom center;
+      transform: translate(-50%, -100%) rotate(90deg);
+    }
+    .hand.hour { width: 6px; height: 60px; background: #38bdf8; border-radius: 4px; }
+    .hand.minute { width: 4px; height: 80px; background: #60a5fa; border-radius: 4px; }
+    .hand.second { width: 2px; height: 90px; background: #f87171; border-radius: 4px; }
+    .center-dot { width: 14px; height: 14px; background: white; border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+    .number { position: absolute; color: white; font-size: 16px; font-weight: bold; transform: translate(-50%, -50%); }
+  </style>
+</head>
+<body class="bg-[#0a0f1c] flex items-center justify-center min-h-screen text-white">
+
+  <div class="bg-[#0f1b2b] rounded-2xl shadow-lg p-6 w-[1000px]">
+    <div class="grid grid-cols-3 gap-8">
+      <!-- Calendar -->
+      <div class="col-span-2">
+        <div class="flex justify-between items-center mb-4">
+          <button onclick="prevMonth()" class="px-3 py-1 bg-cyan-600 rounded hover:bg-cyan-500">◀</button>
+          <h2 id="monthYear" class="text-xl font-semibold"></h2>
+          <button onclick="nextMonth()" class="px-3 py-1 bg-cyan-600 rounded hover:bg-cyan-500">▶</button>
+        </div>
+        <div class="grid grid-cols-7 gap-2 text-center">
+          <div class="font-semibold">Sun</div>
+          <div class="font-semibold">Mon</div>
+          <div class="font-semibold">Tue</div>
+          <div class="font-semibold">Wed</div>
+          <div class="font-semibold">Thu</div>
+          <div class="font-semibold">Fri</div>
+          <div class="font-semibold">Sat</div>
+        </div>
+        <div id="calendar" class="grid grid-cols-7 gap-2 mt-2"></div>
+      </div>
+
+      <!-- Analog Clock + Location -->
+      <div class="flex flex-col items-center">
+        <div class="clock" id="clock">
+          <div class="hand hour" id="hourHand"></div>
+          <div class="hand minute" id="minuteHand"></div>
+          <div class="hand second" id="secondHand"></div>
+          <div class="center-dot"></div>
+        </div>
+        <div class="mt-4 text-center">
+          <p id="location" class="text-cyan-300 font-medium"></p>
+          <p id="coords" class="text-cyan-400 text-sm"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Calendar
+    const calendar = document.getElementById("calendar");
+    const monthYear = document.getElementById("monthYear");
+    let currentDate = new Date();
+
+    function renderCalendar() {
+      calendar.innerHTML = "";
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      monthYear.textContent = currentDate.toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric"
+      });
+
+      for (let i = 0; i < firstDay; i++) {
+        const emptyCell = document.createElement("div");
+        calendar.appendChild(emptyCell);
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const cell = document.createElement("div");
+        cell.textContent = day;
+        cell.classList.add("p-2", "rounded-lg", "hover:bg-cyan-700", "cursor-pointer");
+
+        let today = new Date();
+        if (
+          day === today.getDate() &&
+          month === today.getMonth() &&
+          year === today.getFullYear()
+        ) {
+          cell.classList.add("bg-cyan-600", "text-white", "font-bold");
+        }
+
+        calendar.appendChild(cell);
+      }
+    }
+
+    function prevMonth() {
+      currentDate.setMonth(currentDate.getMonth() - 1);
+      renderCalendar();
+    }
+
+    function nextMonth() {
+      currentDate.setMonth(currentDate.getMonth() + 1);
+      renderCalendar();
+    }
+
+    renderCalendar();
+
+    // Analog Clock
+    function updateClock() {
+      const now = new Date();
+      const second = now.getSeconds();
+      const minute = now.getMinutes();
+      const hour = now.getHours();
+
+      document.getElementById("secondHand").style.transform = `translate(-50%, -100%) rotate(${second * 6}deg)`;
+      document.getElementById("minuteHand").style.transform = `translate(-50%, -100%) rotate(${minute * 6}deg)`;
+      document.getElementById("hourHand").style.transform = `translate(-50%, -100%) rotate(${(hour % 12) * 30 + minute / 2}deg)`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Add numbers to clock
+    const clock = document.getElementById("clock");
+    for (let i = 1; i <= 12; i++) {
+      const angle = (i - 3) * 30; 
+      const x = 110 + 90 * Math.cos((angle * Math.PI) / 180);
+      const y = 110 + 90 * Math.sin((angle * Math.PI) / 180);
+
+      const num = document.createElement("div");
+      num.classList.add("number");
+      num.style.left = x + "px";
+      num.style.top = y + "px";
+      num.textContent = i;
+      clock.appendChild(num);
+    }
+
+    // Location detection with fallback
+    function setLocation(city, country, lat, lon) {
+      document.getElementById("location").textContent = `${city}, ${country}`;
+      document.getElementById("coords").textContent = `Lat: ${lat}, Lng: ${lon}`;
+    }
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((pos) => {
+        const lat = pos.coords.latitude.toFixed(2);
+        const lon = pos.coords.longitude.toFixed(2);
+
+        // Fallback to IP lookup for city/country
+        fetch("https://ipapi.co/json/")
+          .then(res => res.json())
+          .then(data => {
+            setLocation(data.city || "Unknown", data.country_name || "", lat, lon);
+          })
+          .catch(() => setLocation("Unknown", "Unknown", lat, lon));
+      }, () => {
+        // If denied, fallback directly
+        fetch("https://ipapi.co/json/")
+          .then(res => res.json())
+          .then(data => {
+            setLocation(data.city, data.country_name, data.latitude.toFixed(2), data.longitude.toFixed(2));
+          })
+          .catch(() => setLocation("Unknown", "Unknown", "-", "-"));
+      });
+    } else {
+      fetch("https://ipapi.co/json/")
+        .then(res => res.json())
+        .then(data => {
+          setLocation(data.city, data.country_name, data.latitude.toFixed(2), data.longitude.toFixed(2));
+        })
+        .catch(() => setLocation("Unknown", "Unknown", "-", "-"));
+    }
+  </script>
+</body>
+</html>
