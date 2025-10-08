@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kalori Harian Saya</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: "Inter", sans-serif;
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #fefcfb;
+      color: #333;
+      border-radius: 16px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.05);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+    label {
+      font-weight: 600;
+      margin-top: 10px;
+      display: block;
+    }
+    select, input, button {
+      padding: 8px;
+      margin-top: 5px;
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+    button {
+      background-color: #0284c7;
+      color: white;
+      font-weight: bold;
+      margin-top: 14px;
+      cursor: pointer;
+    }
+    button:hover { background-color: #0369a1; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    th, td {
+      border-bottom: 1px solid #ddd;
+      padding: 6px;
+      text-align: left;
+    }
+    th { background-color: #f1f5f9; }
+    .actions button {
+      width: auto;
+      margin-right: 6px;
+      padding: 5px 10px;
+      font-size: 14px;
+    }
+    .total {
+      margin-top: 18px;
+      font-size: 20px;
+      font-weight: bold;
+      text-align: center;
+      color: #1e40af;
+    }
+    canvas {
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🍱 Kalori Harian</h1>
+
+  <label for="tanggal">Tanggal:</label>
+  <input type="date" id="tanggal" />
+
+  <label for="jam">Jam Makan:</label>
+  <input type="time" id="jam" />
+
+  <label for="kategori">Waktu Makan:</label>
+  <select id="kategori">
+    <option value="Breakfast">Breakfast</option>
+    <option value="Lunch">Lunch</option>
+    <option value="Dinner">Dinner</option>
+    <option value="Snack">Snack</option>
+  </select>
+
+  <label for="deskripsi">Makanan:</label>
+  <input list="daftarMakanan" id="deskripsi" placeholder="Pilih atau ketik nama makanan..." />
+  <datalist id="daftarMakanan"></datalist>
+
+  <label for="jumlah">Jumlah (gram):</label>
+  <input type="number" id="jumlah" placeholder="contoh: 100" />
+
+  <button id="simpan">Simpan</button>
+
+  <table id="tabelMakanan">
+    <thead>
+      <tr>
+        <th>Jam</th>
+        <th>Kategori</th>
+        <th>Makanan</th>
+        <th>Berat</th>
+        <th>Kalori</th>
+        <th>Aksi</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div class="total" id="totalKalori">Total hari ini: 0 kkal</div>
+
+  <canvas id="grafikKalori" height="120"></canvas>
+
+  <script>
+    // =================== DATA KALORI ===================
+    const dataKalori = {
+      "Nasi Putih": 129, // per 100 gram
+      "Ayam Goreng": 260, // per 100 gram
+      "Telur Rebus": 77, // per 50 gram
+      "Tahu Goreng": 271, // per 100 gram
+      "Tempe Goreng": 225, // per 100 gram
+      "Roti Tawar": 264, // per 100 gram
+      "Marie Susu": 50, // per 12 gram
+      "Roma Kelapa": 130, // per 27 gram
+      "Energen Cokelat": 150, // per 35 gram
+      "Roti Sobek Cokelat": 350, // per 107 gram
+      "Pisang Kepok Rebus": 115, // per 100 gram
+      "Pisang Susu": 72, // per 100 gram
+      "Ikan Bawal Goreng": 113, // per 100 gram
+      "Telur Dadar": 153, // per 100 gram
+      "Telur Ceplok": 201, // per 100 gram
+      "Telur Orak-arik": 158, // per 100 gram
+      "Ubi Rebus": 146, // per 100 gram
+    };
+
+    // Isi datalist makanan
+    const daftarMakanan = document.getElementById("daftarMakanan");
+    Object.keys(dataKalori).forEach(m => {
+      const opt = document.createElement("option");
+      opt.value = m;
+      daftarMakanan.appendChild(opt);
+    });
+
+    // =================== VARIABEL ===================
+    const tanggalInput = document.getElementById("tanggal");
+    const jamInput = document.getElementById("jam");
+    const btnSimpan = document.getElementById("simpan");
+    const tabelBody = document.querySelector("#tabelMakanan tbody");
+    const totalKaloriEl = document.getElementById("totalKalori");
+    let grafik;
+    let editIndex = null;
+    let dataHarian = JSON.parse(localStorage.getItem("dataHarian") || "{}");
+
+    tanggalInput.value = new Date().toISOString().slice(0, 10);
+    jamInput.value = new Date().toTimeString().slice(0, 5);
+
+    // =================== FUNGSI ===================
+    function hitungKalori(nama, gram) {
+      if (!dataKalori[nama]) return 0;
+      return (dataKalori[nama] * gram) / 100;
+    }
+
+    function simpanData() {
+      const tanggal = tanggalInput.value;
+      const jam = jamInput.value;
+      const kategori = document.getElementById("kategori").value;
+      const deskripsi = document.getElementById("deskripsi").value.trim();
+      const jumlah = parseFloat(document.getElementById("jumlah").value);
+
+      if (!deskripsi || isNaN(jumlah) || !jam) {
+        alert("Lengkapi semua data terlebih dahulu.");
+        return;
+      }
+
+      const kalori = hitungKalori(deskripsi, jumlah);
+
+      if (!dataHarian[tanggal]) dataHarian[tanggal] = [];
+
+      if (editIndex !== null) {
+        dataHarian[tanggal][editIndex] = { jam, kategori, deskripsi, jumlah, kalori };
+        editIndex = null;
+        btnSimpan.textContent = "Simpan";
+      } else {
+        dataHarian[tanggal].push({ jam, kategori, deskripsi, jumlah, kalori });
+      }
+
+      localStorage.setItem("dataHarian", JSON.stringify(dataHarian));
+      tampilkanData(tanggal);
+      updateGrafik();
+      resetForm();
+    }
+
+    function resetForm() {
+      document.getElementById("deskripsi").value = "";
+      document.getElementById("jumlah").value = "";
+      jamInput.value = new Date().toTimeString().slice(0, 5);
+    }
+
+    function tampilkanData(tanggal) {
+      const list = dataHarian[tanggal] || [];
+      tabelBody.innerHTML = "";
+      let total = 0;
+      list.forEach((item, index) => {
+        total += item.kalori;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${item.jam}</td>
+          <td>${item.kategori}</td>
+          <td>${item.deskripsi}</td>
+          <td>${item.jumlah}g</td>
+          <td>${item.kalori.toFixed(0)} kkal</td>
+          <td class="actions">
+            <button onclick="editItem('${tanggal}', ${index})">Edit</button>
+            <button onclick="hapusItem('${tanggal}', ${index})" style="background:#ef4444">Hapus</button>
+          </td>
+        `;
+        tabelBody.appendChild(tr);
+      });
+      totalKaloriEl.textContent = `Total hari ini: ${total.toFixed(0)} kkal`;
+    }
+
+    function hapusItem(tanggal, index) {
+      if (confirm("Hapus item ini?")) {
+        dataHarian[tanggal].splice(index, 1);
+        localStorage.setItem("dataHarian", JSON.stringify(dataHarian));
+        tampilkanData(tanggal);
+        updateGrafik();
+      }
+    }
+
+    function editItem(tanggal, index) {
+      const item = dataHarian[tanggal][index];
+      jamInput.value = item.jam;
+      document.getElementById("kategori").value = item.kategori;
+      document.getElementById("deskripsi").value = item.deskripsi;
+      document.getElementById("jumlah").value = item.jumlah;
+      editIndex = index;
+      btnSimpan.textContent = "Perbarui";
+    }
+
+    function updateGrafik() {
+      const labels = [];
+      const data = [];
+      const hariIni = new Date();
+
+      for (let i = 6; i >= 0; i--) {
+        const tgl = new Date(hariIni);
+        tgl.setDate(hariIni.getDate() - i);
+        const key = tgl.toISOString().slice(0, 10);
+        const total = (dataHarian[key] || []).reduce((a, b) => a + b.kalori, 0);
+        labels.push(key.slice(5)); // cuma ambil MM-DD
+        data.push(total);
+      }
+
+      if (grafik) grafik.destroy();
+      const ctx = document.getElementById("grafikKalori");
+      grafik = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Total Kalori (7 Hari Terakhir)",
+              data,
+              backgroundColor: "#3b82f6"
+            }
+          ]
+        },
+        options: {
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    // =================== EVENT ===================
+    btnSimpan.addEventListener("click", simpanData);
+    tanggalInput.addEventListener("change", () => tampilkanData(tanggalInput.value));
+
+    // =================== INIT ===================
+    tampilkanData(tanggalInput.value);
+    updateGrafik();
+
+    // buat global biar bisa dipanggil dari tombol
+    window.hapusItem = hapusItem;
+    window.editItem = editItem;
+  </script>
+</body>
+</html>
