@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flip Countdown</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@700&display=swap');
+  body {
+    background: #181818;
+    color: white;
+    font-family: 'Roboto Mono', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+  }
+  h1 {
+    letter-spacing: 2px;
+    margin-bottom: 40px;
+    text-align: center;
+  }
+  .countdown {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+  }
+  .flip-card {
+    position: relative;
+    background: #fff;
+    color: #000;
+    font-size: 2.5rem;
+    width: 90px;
+    height: 110px;
+    border-radius: 10px;
+    overflow: hidden;
+    text-align: center;
+    perspective: 1000px;
+  }
+  .flip-card .top,
+  .flip-card .bottom,
+  .flip-card .flip {
+    position: absolute;
+    width: 100%;
+    height: 50%;
+    line-height: 55px;
+    backface-visibility: hidden;
+  }
+  .flip-card .top {
+    top: 0;
+    border-bottom: 2px solid #ccc;
+    background: #fff;
+  }
+  .flip-card .bottom {
+    bottom: 0;
+    border-top: 2px solid #ccc;
+    background: #fff;
+  }
+  .flip-card .flip {
+    background: #fff;
+    transform-origin: bottom;
+    transform: rotateX(0deg);
+    animation: flip 0.7s ease-in-out;
+  }
+  @keyframes flip {
+    0% { transform: rotateX(0deg); }
+    100% { transform: rotateX(-180deg); }
+  }
+  .label {
+    text-align: center;
+    margin-top: 8px;
+    font-size: 0.9rem;
+    color: #ccc;
+  }
+  .dot {
+    position: fixed;
+    top: 15px;
+    right: 20px;
+    cursor: pointer;
+    font-size: 30px;
+    user-select: none;
+  }
+  .settings {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #222;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 0 15px rgba(255,255,255,0.2);
+    width: 300px;
+  }
+  .settings label {
+    font-size: 0.9rem;
+    color: #ccc;
+  }
+  .settings input[type="text"],
+  .settings input[type="datetime-local"] {
+    margin: 8px 0;
+    width: 100%;
+    padding: 8px;
+    border-radius: 6px;
+    border: none;
+    font-family: 'Roboto Mono', monospace;
+  }
+  .checkboxes {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+  }
+  .settings button {
+    margin-top: 12px;
+    width: 100%;
+    background: #fff;
+    border: none;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <div class="dot">•</div>
+  <h1 id="eventName">7DREAM IS BACK</h1>
+  <div class="countdown" id="countdown"></div>
+
+  <div class="settings" id="settings">
+    <label>Event Name:</label>
+    <input type="text" id="newEventName" placeholder="Enter event name">
+    <label>Event Date:</label>
+    <input type="datetime-local" id="newDate">
+    <label>Show Units:</label>
+    <div class="checkboxes">
+      <label><input type="checkbox" class="unit" value="years" checked> Years</label>
+      <label><input type="checkbox" class="unit" value="months" checked> Months</label>
+      <label><input type="checkbox" class="unit" value="weeks"> Weeks</label>
+      <label><input type="checkbox" class="unit" value="days" checked> Days</label>
+      <label><input type="checkbox" class="unit" value="hours" checked> Hours</label>
+      <label><input type="checkbox" class="unit" value="minutes" checked> Minutes</label>
+      <label><input type="checkbox" class="unit" value="seconds" checked> Seconds</label>
+    </div>
+    <button onclick="saveSettings()">Save</button>
+  </div>
+
+<script>
+let events = [
+  { name: "7DREAM IS BACK", date: "2025-12-25T00:00:00" },
+  { name: "NEXT DREAM", date: "2026-03-01T00:00:00" }
+];
+let currentEvent = 0;
+let visibleUnits = ["years","months","days","hours","minutes","seconds"];
+const countdownEl = document.getElementById("countdown");
+
+function flipCard(id, newNumber) {
+  const card = document.getElementById(id);
+  if (!card) return;
+  const topHalf = card.querySelector('.top');
+  const bottomHalf = card.querySelector('.bottom');
+  const currentNumber = topHalf.textContent;
+  if (newNumber === currentNumber) return;
+  const flip = document.createElement('div');
+  flip.classList.add('flip');
+  flip.textContent = newNumber;
+  card.appendChild(flip);
+  setTimeout(() => {
+    topHalf.textContent = newNumber;
+    bottomHalf.textContent = newNumber;
+    flip.remove();
+  }, 700);
+}
+
+function buildCountdown() {
+  countdownEl.innerHTML = '';
+  visibleUnits.forEach(unit => {
+    const div = document.createElement('div');
+    div.innerHTML = `
+      <div class="flip-card" id="${unit}">
+        <div class="top">00</div>
+        <div class="bottom">00</div>
+      </div>
+      <div class="label">${unit.charAt(0).toUpperCase() + unit.slice(1)}</div>
+    `;
+    countdownEl.appendChild(div);
+  });
+}
+
+function updateCountdown() {
+  const now = new Date().getTime();
+  const target = new Date(events[currentEvent].date).getTime();
+  let diff = target - now;
+
+  if (diff <= 0) {
+    currentEvent = (currentEvent + 1) % events.length;
+    document.getElementById("eventName").textContent = events[currentEvent].name;
+    return;
+  }
+
+  let seconds = Math.floor(diff / 1000);
+  let minutes = Math.floor(seconds / 60);
+  let hours = Math.floor(minutes / 60);
+  let days = Math.floor(hours / 24);
+  let weeks = Math.floor(days / 7);
+  let months = Math.floor(days / 30);
+  let years = Math.floor(days / 365);
+
+  const values = {
+    years: String(years).padStart(2, '0'),
+    months: String(months % 12).padStart(2, '0'),
+    weeks: String(weeks % 4).padStart(2, '0'),
+    days: String(days % 7).padStart(2, '0'),
+    hours: String(hours % 24).padStart(2, '0'),
+    minutes: String(minutes % 60).padStart(2, '0'),
+    seconds: String(seconds % 60).padStart(2, '0')
+  };
+
+  visibleUnits.forEach(unit => flipCard(unit, values[unit]));
+}
+
+setInterval(updateCountdown, 1000);
+buildCountdown();
+document.getElementById("eventName").textContent = events[currentEvent].name;
+
+const dot = document.querySelector('.dot');
+const settings = document.getElementById('settings');
+dot.onclick = () => settings.style.display = settings.style.display === 'block' ? 'none' : 'block';
+
+function saveSettings() {
+  const name = document.getElementById('newEventName').value;
+  const date = document.getElementById('newDate').value;
+  const units = Array.from(document.querySelectorAll('.unit:checked')).map(u => u.value);
+  if (name && date) {
+    events.unshift({ name, date });
+    currentEvent = 0;
+    document.getElementById('eventName').textContent = name;
+  }
+  visibleUnits = units;
+  buildCountdown();
+  settings.style.display = 'none';
+}
+</script>
+</body>
+</html>
